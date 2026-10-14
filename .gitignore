@@ -1,0 +1,25 @@
+.runtime/
+.venv/
+**/__pycache__/
+**/.pytest_cache/
+**/node_modules/
+**/dist/
+**/*.egg-info/
+**/build/
+**/*.tsbuildinfo
+**/.env
+**/.env.*
+**/*.db
+**/*.sqlite*
+**/*.log
+**/logs/
+配置/
+输出/
+video and audio/
+watched.log
+cookie.txt
+操作台数据/
+历史转录/
+release/
+
+.local/

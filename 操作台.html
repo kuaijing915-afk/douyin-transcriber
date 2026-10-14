@@ -1,0 +1,1167 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>抖音转录系统</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{--bg:#0d1117;--card:#161b22;--card2:#1c222b;--border:#30363d;--text:#e6edf3;--text2:#8b949e;--blue:#58a6ff;--green:#3fb950;--yellow:#d29922;--red:#f85149;--radius:12px}
+html,body{height:100%;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans SC",sans-serif;font-size:14px;color:var(--text);background:var(--bg)}
+body{display:flex;flex-direction:column;padding:8px 12px;gap:6px}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+
+/* Status bar */
+.status-bar{flex-shrink:0;display:flex;align-items:center;gap:8px;padding:8px 16px;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:0 8px 24px rgba(0,0,0,0.12)}
+.status-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.status-dot.green{background:var(--green);box-shadow:0 0 6px var(--green)}
+.status-dot.red{background:var(--red);box-shadow:0 0 6px var(--red)}
+.status-dot.gray{background:var(--text2);animation:pulse 1.2s infinite}
+@keyframes pulse{0%,100%{opacity:0.3}50%{opacity:1}}
+.status-text{font-size:13px;font-weight:500}
+.status-spacer{flex:1}
+.status-title{font-size:12px;color:var(--text2)}
+
+/* Card base */
+.card{flex:1;min-height:0;display:flex;flex-direction:column;background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:10px 14px;overflow:hidden;box-shadow:0 8px 24px rgba(0,0,0,0.1)}
+.card.collapsed{flex:0 0 auto}
+.card-header{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;flex-shrink:0;padding-bottom:0}
+.card-header.clickable{cursor:pointer;user-select:none}
+.card-header.clickable:hover{opacity:0.8}
+.toggle-icon{margin-left:auto;font-size:12px;color:var(--text2);font-weight:400}
+.card-body{flex:1;min-height:0;display:flex;flex-direction:column;gap:8px;overflow-y:auto;padding-top:8px}
+.card.collapsed .card-body{display:none}
+.card-action{margin-left:auto;padding:4px 8px;border:0;border-radius:6px;background:transparent;color:var(--blue);font:inherit;font-size:12px;cursor:pointer}
+.card-action:hover{background:rgba(88,166,255,0.1)}
+.cookie-card{flex:0 0 132px}
+.cookie-card.cookie-compact{flex:0 0 auto;padding-top:9px;padding-bottom:9px;background:var(--card2)}
+.cookie-card.cookie-compact .card-body{display:none}
+.cookie-summary{margin-left:4px;color:var(--text2);font-size:12px;font-weight:400}
+.cookie-summary.success{color:var(--green)}
+.cookie-summary.warning{color:var(--yellow)}
+.task-grid{flex:0 0 190px;min-height:0;display:grid;grid-template-columns:minmax(0,0.8fr) minmax(0,1.2fr);gap:6px}
+.task-grid .card{min-width:0}
+.task-card{position:relative}
+.task-card::before{content:"";position:absolute;inset:0 auto 0 0;width:3px;background:var(--blue);opacity:0.8}
+.like-card::before{background:var(--green)}
+.result-card{flex:1 1 260px}
+
+/* Textarea */
+textarea{width:100%;flex:1;min-height:40px;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-family:"SF Mono",Consolas,"Courier New",monospace;font-size:12px;line-height:1.5;resize:none}
+textarea:focus{border-color:var(--blue);outline:none;box-shadow:0 0 0 3px rgba(88,166,255,0.12)}
+textarea::placeholder{color:var(--text2)}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:44px;padding:0 16px;font-size:15px;font-weight:500;border-radius:8px;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer;white-space:nowrap;transition:all 0.15s ease;flex-shrink:0}
+.btn:hover{border-color:var(--text2)}
+.btn:active{transform:scale(0.97)}
+.btn:disabled{opacity:0.35;cursor:not-allowed;transform:none}
+.btn-primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn-primary:hover{opacity:0.88;border-color:var(--blue)}
+.btn-primary:disabled{opacity:0.35}
+.btn-lg{height:60px;font-size:18px;padding:0 32px}
+.btn-sm{height:38px;font-size:13px;padding:0 12px}
+.btn-danger{background:var(--red);color:#fff;border:1px solid var(--red)}
+.btn-danger:hover{background:#d0353d}
+.btn-row{display:flex;gap:6px}
+.btn-row .btn{flex:1}
+
+/* Status line */
+.count-option{font-size:12px;color:var(--text2);margin-top:6px}
+.count-input{width:50px;background:var(--bg);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:12px;padding:2px 6px;text-align:center}
+.count-input:focus{border-color:var(--blue);outline:none}
+.url-input{width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:13px;padding:9px 10px;margin-bottom:10px}
+.url-input:focus{border-color:var(--blue);outline:none;box-shadow:0 0 0 3px rgba(88,166,255,0.12)}
+.creator-controls{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:8px;flex-shrink:0}
+.creator-controls .url-input{grid-column:1 / -1;min-width:0;margin:0}
+.creator-controls .count-option{margin:0;white-space:nowrap}
+.status-line{font-size:12px;color:var(--text2);flex-shrink:0}
+.status-line.success{color:var(--green)}
+.status-line.error{color:var(--red)}
+.status-line.warning{color:var(--yellow)}
+.status-line.small{font-size:11px}
+
+/* Progress bar */
+.progress-area{flex-shrink:0}
+.progress-bar{height:8px;background:var(--bg);border-radius:4px;overflow:hidden;margin-bottom:4px}
+.progress-fill{height:100%;width:0%;background:linear-gradient(90deg,var(--blue),#79c0ff);border-radius:4px;transition:width 0.4s ease}
+.progress-text{font-size:13px;color:var(--text2);text-align:center}
+.progress-text.active{color:var(--blue)}
+.progress-text.success{color:var(--green)}
+.cancel-link{font-size:12px;color:var(--text2);cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.cancel-link:hover{color:var(--red)}
+
+/* Main card center area */
+.main-center{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}
+.last-run{font-size:11px;color:var(--text2);text-align:center;flex-shrink:0;padding-top:4px}
+
+/* Result items */
+.result-batch{display:flex;flex-direction:column;gap:1px}
+.batch-header{font-size:12px;color:var(--text2);padding:4px 0 6px;border-bottom:1px solid var(--border);margin-bottom:2px;font-weight:500}
+.result-item{display:flex;align-items:center;gap:8px;padding:5px 8px;border-radius:6px;cursor:pointer;font-size:13px;transition:background 0.12s}
+.result-item:hover{background:rgba(255,255,255,0.04)}
+.result-item .icon{font-size:14px;flex-shrink:0}
+.result-item .name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.result-item .meta{font-size:11px;color:var(--text2);flex-shrink:0}
+.empty-state{display:flex;flex:1;align-items:center;justify-content:center;color:var(--text2);font-size:13px;padding:10px 0}
+
+/* Modal */
+.modal-overlay{position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,0.6);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;opacity:0;visibility:hidden;transition:all 0.2s}
+.modal-overlay.active{opacity:1;visibility:visible}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);width:92%;max-width:640px;max-height:80vh;display:flex;flex-direction:column;transform:translateY(24px);transition:transform 0.22s}
+.modal-overlay.active .modal{transform:translateY(0)}
+.modal-header{display:flex;align-items:center;gap:8px;padding:12px 16px;border-bottom:1px solid var(--border);flex-shrink:0}
+.modal-header .title{font-size:15px;font-weight:600;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.modal-header .close{background:none;border:none;color:var(--text2);font-size:22px;cursor:pointer;padding:4px;line-height:1;border-radius:4px}
+.modal-header .close:hover{color:var(--text);background:rgba(255,255,255,0.05)}
+.modal-body{flex:1;padding:16px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;font-size:13px;line-height:1.8;color:var(--text)}
+
+/* Manual status in header */
+.manual-summary{font-size:11px;color:var(--text2);font-weight:400;margin-left:4px}
+
+/* Responsive */
+@media(max-width:640px){
+  html,body{height:auto;min-height:100%;overflow:auto}
+  body{padding:6px;gap:6px}
+  .card{padding:8px 10px}
+  .cookie-card{flex:0 0 158px}
+  .cookie-card.cookie-compact{flex:0 0 auto}
+  .task-grid{display:flex;flex:0 0 auto;flex-direction:column;gap:6px}
+  .task-grid .card{flex:0 0 auto;min-height:154px}
+  .result-card{flex:0 0 auto;min-height:340px}
+  .btn{height:40px;font-size:14px}
+  .btn-lg{height:48px;font-size:15px;padding:0 20px}
+  .status-bar{padding:6px 12px}
+  .status-title{font-size:11px}
+  .creator-controls{grid-template-columns:1fr}
+  .creator-controls>*{grid-column:1}
+  .creator-controls .btn{width:100%}
+}
+@media(max-height:700px){
+  body{padding:4px 8px;gap:4px}
+  .card{padding:6px 10px}
+  .card-body{gap:4px;padding-top:4px}
+  .btn{height:36px;font-size:13px}
+  .btn-lg{height:44px;font-size:15px}
+  textarea{min-height:24px;padding:5px 8px}
+  .status-bar{padding:5px 12px}
+  .cookie-card{flex-basis:112px}
+  .cookie-card.cookie-compact{flex-basis:auto}
+  .task-grid{flex-basis:164px}
+  .modal{max-height:90vh}
+}
+@media(max-width:640px) and (max-height:700px){
+  .cookie-card{flex-basis:146px}
+  .cookie-card.cookie-compact{flex-basis:auto}
+  .task-grid{flex-basis:auto}
+}
+</style>
+<style>
+/* Minimal dark desktop-tool visual system */
+:root{
+  --bg:#0a0e14;
+  --card:#0f141c;
+  --card2:#121821;
+  --border:#242c37;
+  --border-strong:#323c49;
+  --text:#f1f4f8;
+  --text2:#8d98a7;
+  --blue:#356df3;
+  --blue-hover:#477df6;
+  --green:#45c66f;
+  --yellow:#d8a657;
+  --red:#e86666;
+  --radius:7px;
+}
+html,body{font-size:14px;background:var(--bg)}
+body{padding:0;gap:0}
+::-webkit-scrollbar{width:6px}
+::-webkit-scrollbar-thumb{background:#2b3440;border-radius:6px}
+
+.status-bar{
+  height:clamp(58px,7.7vh,76px);padding:0 clamp(30px,3.2vw,50px);gap:10px;background:var(--bg);
+  border:0;border-bottom:1px solid var(--border);border-radius:0;box-shadow:none
+}
+.status-title{font-size:clamp(20px,1.55vw,24px);font-weight:650;letter-spacing:-0.02em;color:var(--text)}
+.status-text{font-size:13px;font-weight:450;color:var(--text2)}
+.status-dot{width:7px;height:7px}
+.status-dot.green{box-shadow:none}
+
+.card{background:var(--bg);border:0;border-radius:0;box-shadow:none}
+.card-header{font-size:14px;font-weight:550}
+.utility-label{color:var(--text);font-weight:550}
+.card-action{
+  padding:6px 8px;border-radius:5px;color:#6e98ff;font-size:13px;font-weight:500
+}
+.card-action:hover{background:#17233a;color:#8aabff}
+
+.cookie-card{
+  flex:0 0 160px;padding:0 30px 16px;background:var(--card);
+  border-bottom:1px solid var(--border)
+}
+.cookie-card .card-header{height:54px;padding:0}
+.cookie-card.cookie-compact{
+  flex:0 0 clamp(54px,5.65vh,56px);padding:0 clamp(30px,3.2vw,50px);background:var(--card)
+}
+.cookie-card.cookie-compact .card-header{height:100%}
+.cookie-summary{margin-left:22px;font-size:13px}
+.cookie-summary.success{color:var(--text2)}
+.cookie-card .card-body{
+  display:grid;grid-template-columns:minmax(0,1fr) 300px;grid-template-rows:44px 18px;
+  gap:7px 12px;padding:0;overflow:visible
+}
+.cookie-card textarea{height:44px;min-height:44px;resize:none}
+.cookie-card .btn-row{grid-column:2;grid-row:1}
+.cookie-card #cookieStatus{grid-column:1 / -1;grid-row:2}
+.cookie-card.cookie-compact .card-body{display:none}
+
+.task-grid{
+  flex:0 0 clamp(272px,32.8vh,325px);display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:0;
+  background:var(--bg);border-bottom:1px solid var(--border)
+}
+.task-grid .card{
+  min-width:0;padding:24px clamp(32px,3.2vw,50px) 18px;background:var(--bg);overflow:hidden
+}
+.task-grid .card+ .card{border-left:1px solid var(--border)}
+.task-card::before{display:none}
+.task-heading{display:block;padding:0}
+.task-heading h2{font-size:clamp(21px,1.55vw,24px);line-height:1.25;font-weight:620;letter-spacing:-0.02em}
+.task-heading p{margin-top:7px;color:var(--text2);font-size:13px;font-weight:400;line-height:1.45}
+.task-grid .card-body{padding-top:16px;gap:12px;overflow:visible}
+.main-center{align-items:stretch;justify-content:flex-start;gap:12px}
+.field{display:flex;min-width:0;flex-direction:column;gap:7px}
+.field-label{color:#b5bdc9;font-size:12px;font-weight:520}
+.count-input,.url-input,textarea{
+  width:100%;height:44px;margin:0;padding:0 12px;background:#0b1017;
+  border:1px solid var(--border-strong);border-radius:6px;color:var(--text);
+  font-family:inherit;font-size:13px;text-align:left;transition:border-color .15s,box-shadow .15s
+}
+.count-input:focus,.url-input:focus,textarea:focus{
+  outline:0;border-color:#537ee7;box-shadow:0 0 0 3px rgba(53,109,243,.14)
+}
+.count-input::placeholder,.url-input::placeholder,textarea::placeholder{color:#687382}
+.creator-controls{display:flex;flex-direction:column;align-items:stretch;gap:11px}
+.btn{
+  height:42px;border:1px solid var(--border-strong);border-radius:6px;background:#111720;
+  color:#dce2ea;font-family:inherit;font-size:13px;font-weight:550;transition:background .15s,border-color .15s,transform .1s
+}
+.btn:hover{background:#171e28;border-color:#46515f}
+.btn-primary{height:50px;background:var(--blue);border-color:var(--blue);color:#fff}
+.btn-primary:hover{background:var(--blue-hover);border-color:var(--blue-hover);opacity:1}
+.btn-lg{height:50px;padding:0 22px;font-size:14px}
+.btn-sm{height:36px;font-size:12px}
+.btn-danger{background:transparent;color:#d98585;border-color:#543535}
+.btn-danger:hover{background:#241517;border-color:#724044}
+.btn:disabled{opacity:.38}
+.last-run{margin-top:auto;padding:0;color:#737f8e;text-align:left;font-size:12px}
+.task-card .progress-area{
+  position:absolute;left:clamp(32px,3.2vw,50px);right:clamp(32px,3.2vw,50px);bottom:12px;padding:8px 10px;
+  border:1px solid var(--border);border-radius:6px;background:var(--card2);z-index:3
+}
+.progress-bar{height:3px;background:#26303c}
+.progress-fill{background:var(--blue)}
+.progress-text{margin-top:6px;font-size:12px}
+.cancel-link{font-size:11px}
+
+#manualCard{
+  flex:0 0 118px;padding:0 clamp(30px,3.2vw,50px) 14px;background:var(--card);
+  border-bottom:1px solid var(--border)
+}
+#manualCard.collapsed{flex:0 0 54px;padding-bottom:0}
+#manualCard .card-header{height:53px;padding:0}
+#manualCard .card-body{padding:0;gap:8px;overflow:visible}
+#manualCard .btn-row{align-items:center}
+#manualCard .count-option{display:flex;align-items:center;gap:8px;margin:0!important}
+#manualCard .count-input{width:74px;height:36px}
+.manual-summary{margin-left:24px;color:var(--text2);font-size:12px}
+.toggle-icon{color:#6e98ff;font-size:13px}
+
+.result-card{flex:1 1 auto;min-height:0;padding:22px clamp(30px,2.5vw,40px) 24px;background:var(--bg)}
+.result-heading{font-size:17px;font-weight:610;letter-spacing:-0.01em}
+.result-card>.card-body{
+  display:block;margin-top:14px;padding:0;border:1px solid var(--border);
+  border-radius:6px;overflow-y:auto;background:#0c1118
+}
+.result-batch{gap:0}
+.batch-header{
+  min-height:39px;display:flex;align-items:center;margin:0;padding:0 16px 0 38px;
+  border-bottom:1px solid var(--border);color:#cbd2dc;font-size:13px;font-weight:500;
+  background:#0f151d;position:relative
+}
+.batch-header::before{
+  content:"";position:absolute;left:18px;top:14px;width:6px;height:6px;
+  border-right:1.5px solid #758190;border-bottom:1.5px solid #758190;transform:rotate(45deg)
+}
+.result-item{
+  min-height:37px;padding:0 16px 0 50px;border-bottom:1px solid rgba(36,44,55,.78);
+  border-radius:0;color:#b5bdc8;font-size:12px
+}
+.result-item:hover{background:#121923}
+.result-item .name{order:1}
+.file-mark{order:2;margin-left:auto;color:#687383;font-size:10px;letter-spacing:.06em}
+.empty-state{min-height:120px;color:#66717f}
+
+.modal-overlay{background:rgba(2,5,9,.76);backdrop-filter:blur(6px)}
+.modal{background:var(--card);border:1px solid var(--border-strong);border-radius:8px;box-shadow:0 24px 80px rgba(0,0,0,.45)}
+.modal-header{border-bottom-color:var(--border)}
+.modal-body{color:#d6dce5}
+
+@media(max-width:760px){
+  html,body{height:auto;min-height:100%;overflow:auto}
+  .status-bar{height:54px;padding:0 18px}
+  .status-title{font-size:18px}
+  .cookie-card{flex:0 0 218px;padding:0 18px 14px}
+  .cookie-card.cookie-compact{flex:0 0 50px;padding:0 18px}
+  .cookie-card .card-header{height:50px}
+  .cookie-summary{margin-left:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .cookie-card .card-body{grid-template-columns:1fr;grid-template-rows:44px 42px 18px}
+  .cookie-card .btn-row{grid-column:1;grid-row:2}
+  .cookie-card #cookieStatus{grid-column:1;grid-row:3}
+  .task-grid{display:flex;flex:0 0 auto;flex-direction:column}
+  .task-grid .card{flex:0 0 auto;min-height:244px;padding:22px 18px}
+  .task-grid .card+ .card{min-height:302px;border-left:0;border-top:1px solid var(--border)}
+  .task-grid .card-body{padding-top:15px}
+  .task-heading h2{font-size:20px}
+  .task-card .progress-area{left:18px;right:18px}
+  #manualCard{padding-left:18px;padding-right:18px}
+  .manual-summary{margin-left:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .result-card{flex:0 0 auto;min-height:500px;padding:18px}
+  .result-card>.card-body{overflow:visible}
+  .result-item{padding-left:38px}
+  .file-mark{display:none}
+}
+
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{scroll-behavior:auto!important;transition:none!important;animation:none!important}
+}
+</style>
+</head>
+<body>
+
+<!-- ====== App Header ====== -->
+<div class="status-bar" id="statusBar">
+  <span class="status-title">抖音转录</span>
+  <span class="status-spacer"></span>
+  <span class="status-dot gray" id="statusDot"></span>
+  <span class="status-text" id="statusText">检测中...</span>
+</div>
+
+<!-- ====== Cookie Card ====== -->
+<div class="card cookie-card" id="cookieCard">
+  <div class="card-header">
+    <span class="utility-label">Cookie</span>
+    <span class="cookie-summary" id="cookieHeaderStatus">检测中...</span>
+    <button class="card-action" id="btnToggleCookie" onclick="toggleCookieEditor()">收起</button>
+  </div>
+  <div class="card-body">
+    <textarea id="cookieInput" placeholder="从浏览器复制Cookie粘贴到这里..."></textarea>
+    <div class="btn-row">
+      <button class="btn btn-primary" id="btnSaveCookie" onclick="saveCookie()">保存</button>
+      <button class="btn" id="btnTestCookie" onclick="testCookie()">测试是否有效</button>
+    </div>
+    <div class="status-line" id="cookieStatus">等待粘贴Cookie...</div>
+  </div>
+</div>
+
+<!-- ====== Task Cards ====== -->
+<div class="task-grid">
+<div class="card task-card like-card" id="mainCard">
+  <div class="card-header task-heading">
+    <h2>喜欢列表</h2>
+    <p>转录当前账号喜欢的视频</p>
+  </div>
+  <div class="card-body">
+    <div class="main-center" id="mainCenter">
+      <div class="progress-area" id="progressArea" style="display:none">
+        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+        <div class="progress-text" id="progressText">准备中...</div>
+        <div style="text-align:center"><span class="cancel-link" id="cancelLink" onclick="cancelPipeline()">取消</span></div>
+      </div>
+      <label class="field">
+        <span class="field-label">视频数量</span>
+        <input type="number" class="count-input" id="pipelineCount" min="1" max="999" placeholder="全部">
+      </label>
+      <button class="btn btn-primary btn-lg" id="btnPipeline" onclick="startPipeline()">开始转录</button>
+    </div>
+    <div class="last-run" id="lastRun">还没有转录记录</div>
+  </div>
+</div>
+
+<!-- ====== Creator Card ====== -->
+<div class="card task-card" id="creatorCard">
+  <div class="card-header task-heading">
+    <h2>博主主页</h2>
+    <p>粘贴主页链接，批量转录公开视频</p>
+  </div>
+  <div class="card-body">
+    <div class="creator-controls">
+      <label class="field">
+        <span class="field-label">主页链接</span>
+        <input type="url" class="url-input" id="creatorUrl" placeholder="抖音主页链接或分享链接">
+      </label>
+      <label class="field">
+        <span class="field-label">视频数量</span>
+        <input type="number" class="count-input" id="creatorCount" min="1" max="999" placeholder="全部">
+      </label>
+      <button class="btn btn-primary" id="btnCreatorPipeline" onclick="startCreatorPipeline()">开始转录</button>
+    </div>
+    <div class="status-line warning" id="creatorHint" style="display:none"></div>
+    <div class="progress-area" id="creatorProgressArea" style="display:none">
+      <div class="progress-bar"><div class="progress-fill" id="creatorProgressFill"></div></div>
+      <div class="progress-text" id="creatorProgressText">准备中...</div>
+      <div style="text-align:center"><span class="cancel-link" onclick="cancelCreatorPipeline()">取消</span></div>
+    </div>
+  </div>
+</div>
+</div>
+
+<!-- ====== Manual Card ====== -->
+<div class="card collapsed" id="manualCard">
+  <div class="card-header clickable" onclick="toggleManual()">
+    <span class="utility-label">单独操作</span>
+    <span class="manual-summary" id="manualSummary">下载就绪 · 转录就绪</span>
+    <span class="toggle-icon" id="manualToggle">展开</span>
+  </div>
+  <div class="card-body">
+    <div class="btn-row">
+      <div class="count-option" style="margin-bottom:8px">下载 <input type="number" class="count-input" id="manualCount" min="1" max="999" placeholder="全部"> 个</div>
+      <button class="btn btn-sm" id="btnDownload" onclick="runDownload()">下载视频</button>
+      <button class="btn btn-sm" id="btnTranscribe" onclick="runTranscribe()">转文字</button>
+      <button class="btn btn-sm" onclick="loadResults()">刷新结果</button>
+      <button class="btn btn-sm btn-danger" onclick="runCleanup()">清理视频</button>
+    </div>
+    <div class="status-line small" id="manualStatus">等待操作...</div>
+  </div>
+</div>
+
+
+<style>
+.audio-only{flex:0 0 auto;padding:12px 16px;background:var(--card);border:1px solid var(--border,var(--line));border-radius:12px;margin:6px 0}
+.audio-only summary{cursor:pointer;font-weight:600}.audio-only form{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin-top:12px}
+.audio-only p{font-size:13px;color:var(--text2,var(--muted));margin:10px 0}.audio-only input{max-width:100%;min-width:0;flex:1 1 260px;color:inherit}
+.audio-only button,.audio-only a{font:inherit;border:1px solid var(--border,var(--line));border-radius:6px;padding:8px 12px;background:var(--card);color:var(--blue);cursor:pointer}
+.audio-only [role=status]{flex-basis:100%;font-size:13px;overflow-wrap:anywhere}.audio-only button:disabled{opacity:.5;cursor:wait}
+</style>
+<details class="audio-only" id="audioOnly">
+<summary>仅提取音频 · 保留原音质</summary>
+<p>选择本地视频，完整提取第一条音轨。不转录、不重新压缩，保留原采样率与声道；文件只在本机处理。</p>
+<form id="audioOnlyForm">
+<label for="audioOnlyFile">视频文件</label>
+<input id="audioOnlyFile" type="file" accept="video/*,.mkv,.webm,.mov,.avi,.mp4,.m4v,.ts,.mts,.flv" required>
+<button id="audioOnlyButton" type="submit">提取原音轨</button>
+<a id="audioOnlyDownload" hidden>下载音频</a>
+<span id="audioOnlyStatus" role="status" aria-live="polite">等待选择视频。</span>
+</form>
+</details>
+<script>
+(()=>{
+ const form=document.getElementById('audioOnlyForm'),file=document.getElementById('audioOnlyFile'),button=document.getElementById('audioOnlyButton'),link=document.getElementById('audioOnlyDownload'),status=document.getElementById('audioOnlyStatus');
+ let blobUrl='';
+ form.addEventListener('submit',async event=>{
+  event.preventDefault();if(!file.files.length)return;
+  button.disabled=true;file.disabled=true;link.hidden=true;
+  if(blobUrl){URL.revokeObjectURL(blobUrl);blobUrl='';}
+  status.textContent='正在上传到本机并提取原音轨…';
+  try{
+   const stateResponse=await fetch('/api/status');if(!stateResponse.ok)throw new Error('服务连接失败，请刷新页面。');
+   const state=await stateResponse.json();
+   const headers={'Content-Type':'application/octet-stream'};if(state.token)headers['X-Console-Token']=state.token;
+   const response=await fetch('/api/audio-extract?filename='+encodeURIComponent(file.files[0].name),{method:'POST',headers,body:file.files[0]});
+   if(!response.ok){const error=await response.json();throw new Error(error.error||'提取失败。');}
+   const data=await response.blob();if(!data.size)throw new Error('没有收到音频文件。');
+   const disposition=response.headers.get('Content-Disposition')||'';const name=disposition.match(/filename\*=UTF-8''(.+)/i);
+   blobUrl=URL.createObjectURL(data);link.href=blobUrl;link.download=name?decodeURIComponent(name[1]):'原音轨.mka';link.hidden=false;
+   status.textContent='提取完成，原编码、采样率与声道保留。点击“下载音频”保存。';
+  }catch(error){status.textContent=error.message||'提取失败，请检查服务后重试。';}
+  finally{button.disabled=false;file.disabled=false;}
+ });
+})();
+</script>
+
+<!-- ====== Result Card ====== -->
+<div class="card result-card" id="resultCard">
+  <div class="card-header result-heading">最新转录</div>
+  <div class="card-body" id="resultBody">
+    <div class="empty-state">还没有转录结果</div>
+  </div>
+</div>
+
+<!-- ====== Preview Modal ====== -->
+<div class="modal-overlay" id="previewModal">
+  <div class="modal">
+    <div class="modal-header">
+      <span class="title" id="previewTitle">文件内容</span>
+      <button class="close" onclick="closePreview()">&times;</button>
+    </div>
+    <div class="modal-body" id="previewContent">加载中...</div>
+  </div>
+</div>
+
+<script>
+/* ================================================================
+   配置
+   ================================================================ */
+const base = () => window.location.origin;
+
+let statusData = null;
+let resultsData = null;
+let pipelineBusy = false;
+let manualBusy = false;
+let pipelineCancelled = false;
+let creatorBusy = false;
+let creatorCancelled = false;
+let cookieEditing = false;
+let cookieTestResult = null;
+let cookieSaveVersion = 0;
+
+/* ================================================================
+   工具
+   ================================================================ */
+function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+function truncate(s, n) {
+  if (!s) return '';
+  var cleaned = s.replace(/\.\w+$/, '').replace(/[_-]/g, ' ');
+  return cleaned.length > n ? cleaned.slice(0, n) + '...' : cleaned;
+}
+
+function setCookieCompact(compact) {
+  var card = document.getElementById('cookieCard');
+  var btn = document.getElementById('btnToggleCookie');
+  card.classList.toggle('cookie-compact', compact);
+  btn.textContent = compact ? '修改' : '收起';
+}
+
+function toggleCookieEditor() {
+  var card = document.getElementById('cookieCard');
+  var opening = card.classList.contains('cookie-compact');
+  cookieEditing = opening;
+  setCookieCompact(!opening);
+  if (opening) document.getElementById('cookieInput').focus();
+}
+
+/* 流读取 */
+async function readStream(resp, handlers) {
+  try {
+    var reader = resp.body.getReader();
+    var decoder = new TextDecoder();
+    var buf = '';
+    while (true) {
+      var r = await reader.read();
+      if (r.done) break;
+      buf += decoder.decode(r.value, {stream: true});
+      var frames = buf.split('\n\n');
+      buf = frames.pop();
+      for (var f = 0; f < frames.length; f++) {
+        var lines = frames[f].split('\n');
+        for (var l = 0; l < lines.length; l++) {
+          if (lines[l].startsWith('data: ')) {
+            try {
+              var ev = JSON.parse(lines[l].slice(6));
+              if (ev.type === 'log' && handlers.log) handlers.log(ev.text);
+              else if (ev.type === 'error' && handlers.error) handlers.error(ev.text);
+              else if (ev.type === 'progress' && handlers.progress) handlers.progress(ev);
+              else if (ev.type === 'done' && handlers.done) handlers.done(ev);
+              else if (ev.type === 'result' && handlers.result) handlers.result(ev.text);
+            } catch(e) {}
+          }
+        }
+      }
+    }
+    if (handlers.end) handlers.end();
+  } catch(e) {
+    if (handlers.error) handlers.error(e.message);
+  }
+}
+
+/* ================================================================
+   状态
+   ================================================================ */
+async function checkStatus() {
+  try {
+    var r = await fetch(base() + '/api/status', {signal: AbortSignal.timeout(5000)});
+    if (!r.ok) throw new Error(r.status);
+    statusData = await r.json();
+    if (cookieTestResult) {
+      var checkedResult = cookieTestResult;
+      var cr = await fetch(base() + '/api/cookie/check', {signal: AbortSignal.timeout(5000)});
+      if (!cr.ok) throw new Error(cr.status);
+      var cd = await cr.json();
+      var signature = cd.exists ? cd.size + '|' + cd.modified : null;
+      if (cookieTestResult === checkedResult && checkedResult.signature !== signature) cookieTestResult = null;
+    }
+    updateUI(statusData);
+  } catch(e) {
+    statusData = null;
+    offlineUI();
+  }
+}
+
+function offlineUI() {
+  var dot = document.getElementById('statusDot');
+  dot.className = 'status-dot red';
+  document.getElementById('statusText').textContent = '后端未启动';
+  document.getElementById('cookieStatus').textContent = '后端未连接，无法操作';
+  document.getElementById('cookieStatus').className = 'status-line error';
+  document.getElementById('cookieHeaderStatus').textContent = '后端未连接';
+  document.getElementById('cookieHeaderStatus').className = 'cookie-summary warning';
+  document.getElementById('btnToggleCookie').style.display = 'none';
+  setCookieCompact(false);
+  document.getElementById('btnPipeline').disabled = true;
+  document.getElementById('btnCreatorPipeline').disabled = true;
+  document.getElementById('btnSaveCookie').disabled = true;
+  document.getElementById('btnTestCookie').disabled = true;
+  document.getElementById('btnDownload').disabled = true;
+  document.getElementById('btnTranscribe').disabled = true;
+}
+
+function updateUI(data) {
+  var dot = document.getElementById('statusDot');
+  dot.className = 'status-dot green';
+  document.getElementById('statusText').textContent = '系统就绪';
+  // Don't re-enable buttons that are mid-operation
+  var pipelineBtn = document.getElementById('btnPipeline');
+  if (!pipelineBusy && !creatorBusy) {
+    pipelineBtn.disabled = false;
+    pipelineBtn.textContent = '开始转录';
+  }
+  // Don't touch cookie buttons if a save/test is in progress
+  if (!document.getElementById('btnSaveCookie').disabled) {
+    document.getElementById('btnSaveCookie').disabled = false;
+    document.getElementById('btnTestCookie').disabled = false;
+  }
+  document.getElementById('btnDownload').disabled = !data.cookie_ok || manualBusy;
+  document.getElementById('btnTranscribe').disabled = !data.cookie_ok || !data.video_count || manualBusy;
+  document.getElementById('btnCreatorPipeline').disabled = !data.cookie_ok || creatorBusy || pipelineBusy;
+
+  // Cookie status
+  var cs = document.getElementById('cookieStatus');
+  var chs = document.getElementById('cookieHeaderStatus');
+  var cookieToggle = document.getElementById('btnToggleCookie');
+  if (data.cookie_ok) {
+    cs.textContent = cookieTestResult ? cookieTestResult.text : '已保存，登录有效性待验证';
+    cs.className = 'status-line ' + (cookieTestResult ? cookieTestResult.cls : 'success');
+    chs.textContent = cs.textContent;
+    chs.className = 'cookie-summary ' + (cookieTestResult ? cookieTestResult.cls : 'success');
+    cookieToggle.style.display = '';
+  } else {
+    cs.textContent = '未检测到已保存的Cookie，请粘贴保存';
+    cs.className = 'status-line warning';
+    chs.textContent = '需要设置';
+    chs.className = 'cookie-summary warning';
+    cookieToggle.style.display = 'none';
+  }
+  if (!cookieEditing) setCookieCompact(data.cookie_ok);
+
+  // Last run summary
+  var lr = document.getElementById('lastRun');
+  if (data.results && data.results.length > 0) {
+    var last = data.results[data.results.length - 1];
+    lr.textContent = '最近一次' + (last.time ? ' · ' + last.time : '') + ' · 下载' + (last.files || 0) + '个 · 转录' + (last.files || 0) + '个';
+  } else {
+    lr.textContent = '还没有转录记录';
+  }
+
+  // Manual summary
+  var ms = document.getElementById('manualSummary');
+  ms.textContent = (data.cookie_ok ? '下载就绪' : '下载待Cookie') + ' · ' +
+    ((data.cookie_ok && data.video_count > 0) ? '转录就绪' : '转录等待中') +
+    ' · ' + ((data.results && data.results.length > 0) ? data.results.length + '次结果' : '0次结果');
+}
+
+async function startCreatorPipeline() {
+  if (creatorBusy) return;
+  var url = document.getElementById('creatorUrl').value.trim();
+  if (!url) {
+    var hint = document.getElementById('creatorHint');
+    hint.textContent = '请先粘贴博主主页链接';
+    hint.style.display = 'block';
+    return;
+  }
+
+  creatorBusy = true;
+  creatorCancelled = false;
+  document.getElementById('creatorHint').style.display = 'none';
+  document.getElementById('btnPipeline').disabled = true;
+  var btn = document.getElementById('btnCreatorPipeline');
+  var pa = document.getElementById('creatorProgressArea');
+  var pf = document.getElementById('creatorProgressFill');
+  var pt = document.getElementById('creatorProgressText');
+  var cancelLink = pa.querySelector('.cancel-link');
+  var finalResult = '';
+  var lastError = '';
+  btn.disabled = true;
+  btn.textContent = '转录中...';
+  pa.style.display = 'block';
+  cancelLink.style.display = '';
+  pf.style.width = '0%';
+  pt.textContent = '启动中...';
+  pt.className = 'progress-text active';
+
+  try {
+    var cnt = document.getElementById('creatorCount').value;
+    var body = {source: 'creator', url: url};
+    if (cnt) body.count = parseInt(cnt);
+    var resp = await fetch(base() + '/api/pipeline', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(body)
+    });
+    if (!resp.ok) {
+      var problem = await resp.json();
+      throw new Error(problem.error || ('HTTP ' + resp.status));
+    }
+    await readStream(resp, {
+      log: function(t) { pt.textContent = t; },
+      error: function(t) { lastError = t; pt.textContent = t; pt.className = 'progress-text'; },
+      result: function(t) { finalResult = t; pt.textContent = t; },
+      progress: function(ev) {
+        var pct = ev.total > 0 ? Math.round((ev.current / ev.total) * 100) : 0;
+        pf.style.width = Math.min(pct, 100) + '%';
+        pt.textContent = '正在转录 ' + ev.current + '/' + ev.total;
+      },
+      done: function(ev) {
+        cancelLink.style.display = 'none';
+        pf.style.width = ev.exit_code === 0 ? '100%' : '0%';
+        pt.textContent = ev.exit_code === 0 ? '博主视频转录完成' :
+          (creatorCancelled ? '任务已取消' : (finalResult || lastError || '过程出现错误'));
+        pt.className = ev.exit_code === 0 ? 'progress-text success' : 'progress-text';
+        setTimeout(function() {
+          btn.textContent = '开始转录';
+          btn.disabled = false;
+          creatorBusy = false;
+          checkStatus();
+          loadResults();
+        }, 2000);
+      }
+    });
+  } catch(e) {
+    cancelLink.style.display = 'none';
+    pt.textContent = '请求失败：' + e.message;
+    pt.className = 'progress-text';
+    btn.textContent = '开始转录';
+    btn.disabled = false;
+    document.getElementById('btnPipeline').disabled = false;
+    creatorBusy = false;
+  }
+}
+
+async function cancelCreatorPipeline() {
+  if (!creatorBusy) return;
+  try {
+    var resp = await fetch(base() + '/api/cancel', {method: 'POST'});
+    if (!resp.ok) throw new Error(resp.status);
+    var result = await resp.json();
+    creatorCancelled = true;
+    if (result.status === 'no_task') {
+      creatorBusy = false;
+      document.getElementById('btnCreatorPipeline').textContent = '开始转录';
+      document.getElementById('creatorProgressText').textContent = '当前任务已停止';
+      document.querySelector('#creatorProgressArea .cancel-link').style.display = 'none';
+      checkStatus();
+      loadResults();
+      return;
+    }
+    document.querySelector('#creatorProgressArea .cancel-link').style.display = 'none';
+    document.getElementById('creatorProgressText').textContent = '正在停止，请等待当前处理退出';
+  } catch(e) {
+    document.getElementById('creatorProgressText').textContent = '取消失败';
+  }
+}
+
+/* ================================================================
+   Cookie
+   ================================================================ */
+async function saveCookie() {
+  var input = document.getElementById('cookieInput');
+  var cookie = input.value.trim();
+  if (!cookie) { setCookieStatus('请先粘贴Cookie', 'warning'); return; }
+  cookieTestResult = null;
+  cookieSaveVersion += 1;
+  setCookieStatus('保存中...', '');
+  document.getElementById('btnSaveCookie').disabled = true;
+  try {
+    var resp = await fetch(base() + '/api/cookie/save', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({cookie: cookie})
+    });
+    var done = false;
+    await readStream(resp, {
+      log: function(t) { setCookieStatus(t, ''); },
+      error: function(t) { setCookieStatus(t, 'error'); },
+      done: function(ev) {
+        done = true;
+        if (ev.exit_code === 0) {
+          setCookieStatus('Cookie已保存，正在测试...', 'success');
+          setTimeout(testCookie, 500);
+        } else {
+          setCookieStatus('保存失败', 'error');
+        }
+      }
+    });
+    if (!done) setCookieStatus('Cookie已保存', 'success');
+  } catch(e) {
+    setCookieStatus('保存失败：' + e.message, 'error');
+  }
+  document.getElementById('btnSaveCookie').disabled = false;
+  checkStatus();
+}
+
+async function testCookie() {
+  cookieTestResult = null;
+  var testVersion = cookieSaveVersion;
+  setCookieStatus('测试中...', '');
+  document.getElementById('btnTestCookie').disabled = true;
+  try {
+    var cr = await fetch(base() + '/api/cookie/check', {signal: AbortSignal.timeout(5000)});
+    if (!cr.ok) throw new Error(cr.status);
+    var cd = await cr.json();
+    var signature = cd.exists ? cd.size + '|' + cd.modified : null;
+    var resp = await fetch(base() + '/api/cookie/test', {method: 'POST'});
+    await readStream(resp, {
+      log: function(t) { setCookieStatus(t, ''); },
+      error: function(t) { setCookieStatus(t, 'error'); },
+      done: function(ev) {
+        if (testVersion !== cookieSaveVersion) return;
+        var text = ev.exit_code === 0 ? '登录验证通过' : 'Cookie无效或已过期，请重新导出';
+        var cls = ev.exit_code === 0 ? 'success' : 'error';
+        cookieTestResult = signature ? {signature: signature, text: text, cls: cls} : null;
+        setCookieStatus(text, cls);
+      }
+    });
+  } catch(e) {
+    setCookieStatus('测试失败：' + e.message, 'error');
+  }
+  document.getElementById('btnTestCookie').disabled = false;
+  checkStatus();
+}
+
+function setCookieStatus(text, cls) {
+  var el = document.getElementById('cookieStatus');
+  el.textContent = text;
+  el.className = 'status-line' + (cls ? ' ' + cls : '');
+}
+
+/* ================================================================
+   一键转录
+   ================================================================ */
+async function startPipeline() {
+  if (pipelineBusy) return;
+  pipelineBusy = true;
+  pipelineCancelled = false;
+  document.getElementById('btnCreatorPipeline').disabled = true;
+  var btn = document.getElementById('btnPipeline');
+  var pa = document.getElementById('progressArea');
+  var pf = document.getElementById('progressFill');
+  var pt = document.getElementById('progressText');
+  var cancelLink = document.getElementById('cancelLink');
+
+  btn.disabled = true;
+  btn.textContent = '转录中...';
+  pa.style.display = 'block';
+  cancelLink.style.display = '';
+  pf.style.width = '0%';
+  pt.textContent = '启动中...';
+  pt.className = 'progress-text active';
+
+  try {
+    var cnt = document.getElementById('pipelineCount').value;
+    var body = cnt ? JSON.stringify({count: parseInt(cnt)}) : '{}';
+    var resp = await fetch(base() + '/api/pipeline', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: body
+    });
+    await readStream(resp, {
+      log: function(t) { pt.textContent = t; },
+      error: function(t) { pt.textContent = t; pt.className = 'progress-text'; },
+      progress: function(ev) {
+        var pct = 0;
+        if (ev.total > 0) pct = Math.round((ev.current / ev.total) * 100);
+        pf.style.width = Math.min(pct, 100) + '%';
+        pt.textContent = ev.message || ('进度 ' + pct + '%');
+      },
+      done: function(ev) {
+        cancelLink.style.display = 'none';
+        pf.style.width = '100%';
+        if (ev.exit_code === 0) {
+          pt.textContent = '转录完成';
+          pt.className = 'progress-text success';
+        } else if (pipelineCancelled) {
+          pt.textContent = '任务已取消';
+          pt.className = 'progress-text';
+        } else {
+          pt.textContent = '过程出现错误';
+          pt.className = 'progress-text';
+        }
+        setTimeout(function() {
+          pa.style.display = 'none';
+          btn.textContent = '开始转录';
+          btn.disabled = false;
+          pipelineBusy = false;
+          checkStatus();
+          loadResults();
+        }, 2000);
+      }
+    });
+  } catch(e) {
+    cancelLink.style.display = 'none';
+    pt.textContent = '请求失败：' + e.message;
+    pt.className = 'progress-text';
+    setTimeout(function() {
+      pa.style.display = 'none';
+      btn.textContent = '开始转录';
+      btn.disabled = false;
+      pipelineBusy = false;
+      document.getElementById('btnCreatorPipeline').disabled = false;
+    }, 2000);
+  }
+}
+
+/* ================================================================
+   取消
+   ================================================================ */
+async function cancelPipeline() {
+  if (!pipelineBusy) return;
+  try {
+    var resp = await fetch(base() + '/api/cancel', { method: 'POST' });
+    if (!resp.ok) throw new Error(resp.status);
+    var result = await resp.json();
+    pipelineCancelled = true;
+    if (result.status === 'no_task') {
+      pipelineBusy = false;
+      document.getElementById('btnPipeline').textContent = '开始转录';
+      document.getElementById('progressText').textContent = '当前任务已停止';
+      document.getElementById('cancelLink').style.display = 'none';
+      checkStatus();
+      loadResults();
+      return;
+    }
+    var pt = document.getElementById('progressText');
+    document.getElementById('cancelLink').style.display = 'none';
+    pt.textContent = '正在停止，请等待当前处理退出';
+    pt.className = 'progress-text';
+  } catch(e) {
+    document.getElementById('progressText').textContent = '取消失败';
+  }
+}
+
+/* ================================================================
+   单独操作
+   ================================================================ */
+var _manualResetTimer = null;
+
+function _resetManual() {
+  if (_manualResetTimer) clearTimeout(_manualResetTimer);
+  _manualResetTimer = null;
+  setManualStatus('就绪');
+  document.getElementById('btnDownload').disabled = false;
+  document.getElementById('btnTranscribe').disabled = false;
+  manualBusy = false;
+}
+
+function _scheduleReset() {
+  if (_manualResetTimer) clearTimeout(_manualResetTimer);
+  _manualResetTimer = setTimeout(_resetManual, 3000);
+}
+
+async function runDownload() {
+  if (manualBusy) return;
+  manualBusy = true;
+  setManualStatus('正在下载视频...');
+  document.getElementById('btnDownload').disabled = true;
+  try {
+    var cnt = document.getElementById('manualCount').value;
+    var body = cnt ? JSON.stringify({count: parseInt(cnt)}) : '{}';
+    var resp = await fetch(base() + '/api/run/download', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: body
+    });
+    var ok = false;
+    await readStream(resp, {
+      log: function(t) { setManualStatus(t); },
+      error: function(t) { setManualStatus(t); },
+      done: function(ev) { ok = ev.exit_code === 0; }
+    });
+    setManualStatus(ok ? '下载完成' : '下载失败');
+    if (ok) checkStatus();
+  } catch(e) {
+    setManualStatus('下载失败：' + e.message);
+  }
+  _scheduleReset();
+}
+
+async function runTranscribe() {
+  if (manualBusy) return;
+  manualBusy = true;
+  setManualStatus('正在转文字...');
+  document.getElementById('btnTranscribe').disabled = true;
+  try {
+    var resp = await fetch(base() + '/api/run/transcribe', {method: 'POST'});
+    var ok = false;
+    await readStream(resp, {
+      log: function(t) { setManualStatus(t); },
+      error: function(t) { setManualStatus(t); },
+      done: function(ev) { ok = ev.exit_code === 0; }
+    });
+    setManualStatus(ok ? '转录完成' : '转录失败');
+    if (ok) { checkStatus(); loadResults(); }
+  } catch(e) {
+    setManualStatus('转录失败：' + e.message);
+  }
+  _scheduleReset();
+}
+
+async function runCleanup() {
+  if (manualBusy) return;
+  if (!confirm('确定删除所有视频和临时音频文件？转录结果不受影响。')) return;
+  manualBusy = true;
+  setManualStatus('清理中...');
+  try {
+    var resp = await fetch(base() + '/api/run/cleanup', {method: 'POST'});
+    var ok = false;
+    var lastLog = '';
+    await readStream(resp, {
+      log: function(t) { lastLog = t; setManualStatus(t); },
+      error: function(t) { setManualStatus(t); },
+      result: function(t) { lastLog = t; },
+      done: function(ev) { ok = ev.exit_code === 0; setManualStatus(ok ? lastLog : '清理失败'); }
+    });
+    if (ok) checkStatus();
+  } catch(e) {
+    setManualStatus('清理失败：' + e.message);
+  }
+  setTimeout(function() { setManualStatus('就绪'); manualBusy = false; }, 2000);
+}
+
+function setManualStatus(t) {
+  document.getElementById('manualStatus').textContent = t;
+}
+
+/* ================================================================
+   展开/收起单独操作
+   ================================================================ */
+function toggleManual() {
+  var card = document.getElementById('manualCard');
+  var toggle = document.getElementById('manualToggle');
+  if (card.classList.contains('collapsed')) {
+    card.classList.remove('collapsed');
+    toggle.textContent = '收起';
+  } else {
+    card.classList.add('collapsed');
+    toggle.textContent = '展开';
+  }
+}
+
+/* ================================================================
+   结果
+   ================================================================ */
+async function loadResults() {
+  try {
+    var r = await fetch(base() + '/api/results');
+    if (!r.ok) return;
+    resultsData = await r.json();
+    renderResults(resultsData);
+  } catch(e) {
+    // silent
+  }
+}
+
+function renderResults(data) {
+  var body = document.getElementById('resultBody');
+  if (!data || !data.batches || data.batches.length === 0) {
+    body.innerHTML = '<div class="empty-state">还没有转录结果</div>';
+    return;
+  }
+  var html = '';
+  for (var b = 0; b < data.batches.length; b++) {
+    var batch = data.batches[b];
+    var fileCount = batch.files ? batch.files.length : 0;
+    html += '<div class="result-batch">';
+    html += '<div class="batch-header">' + esc(batch.name) + ' · ' + fileCount + '个文件</div>';
+    if (batch.files) {
+      for (var f = 0; f < Math.min(batch.files.length, 8); f++) {
+        var file = batch.files[f];
+        var displayName = truncate(file.name, 30);
+        html += '<div class="result-item" onclick="openPreview(' + b + ',' + f + ')">';
+        html += '<span class="file-mark">TXT</span>';
+        html += '<span class="name">' + esc(displayName) + '</span>';
+        html += '</div>';
+      }
+      if (fileCount > 8) {
+        html += '<div class="status-line small" style="padding:4px 8px">还有 ' + (fileCount - 8) + ' 个文件</div>';
+      }
+    }
+    html += '</div>';
+  }
+  body.innerHTML = html;
+}
+
+/* ================================================================
+   预览
+   ================================================================ */
+async function openPreview(batchIdx, fileIdx) {
+  if (!resultsData || !resultsData.batches || !resultsData.batches[batchIdx]) return;
+  var file = resultsData.batches[batchIdx].files[fileIdx];
+  if (!file) return;
+  document.getElementById('previewTitle').textContent = file.name || '预览';
+  document.getElementById('previewContent').textContent = '加载中...';
+  document.getElementById('previewModal').classList.add('active');
+  // 通过 API 获取文件内容
+  try {
+    var resp = await fetch(base() + '/api/output_file?path=' + encodeURIComponent(file.path));
+    if (resp.ok) {
+      var data = await resp.json();
+      document.getElementById('previewContent').textContent = data.content || '（无内容）';
+    } else {
+      document.getElementById('previewContent').textContent = '（加载失败）';
+    }
+  } catch(e) {
+    document.getElementById('previewContent').textContent = '（加载失败: ' + e.message + '）';
+  }
+}
+
+function closePreview() {
+  document.getElementById('previewModal').classList.remove('active');
+}
+
+/* Close modal on overlay click */
+document.getElementById('previewModal').addEventListener('click', function(e) {
+  if (e.target === this) closePreview();
+});
+
+/* Close modal with Escape */
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' || e.key === 'Esc') closePreview();
+});
+
+/* ================================================================
+   初始化
+   ================================================================ */
+async function init() {
+  await checkStatus();
+  await loadResults();
+  // Also try to get cookie details
+  try {
+    var cr = await fetch(base() + '/api/cookie/check');
+    var cd = await cr.json();
+    if (cd.exists) {
+      var sizeStr = cd.size ? (cd.size / 1024).toFixed(1) + 'KB' : '';
+      var updateStr = cd.modified || '刚刚更新';
+      document.getElementById('cookieStatus').textContent = (cookieTestResult ? cookieTestResult.text : 'Cookie已保存，登录有效性待验证') + (sizeStr ? ' · ' + sizeStr : '') + ' · ' + updateStr;
+      document.getElementById('cookieStatus').className = 'status-line ' + (cookieTestResult ? cookieTestResult.cls : 'success');
+    }
+  } catch(e) { /* use status endpoint data */ }
+  setInterval(checkStatus, 10000);
+}
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+else init();
+</script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+{
+  "python": {
+    "archive": "python-runtime.zip",
+    "sha256": "2d05107e568e8022db157d1bca0c77e4fb489a8b8cdf6fc753e077a841ee79af",
+    "bundled": true,
+    "version": "CPython 3.11.15",
+    "upstream": "https://github.com/astral-sh/python-build-standalone/releases/tag/20260623"
+  },
+  "uv": {
+    "url": "https://github.com/astral-sh/uv/releases/download/0.11.24/uv-x86_64-pc-windows-msvc.zip",
+    "archive": "uv.zip",
+    "sha256": "af9573a2e36f7020b18ec5fdde20117aae74bbad3f4acb3dc3fc03319f1aa083",
+    "bundled": true
+  },
+  "ffmpeg": {
+    "archive": "ffmpeg-runtime.zip",
+    "sha256": "5b4ceea6661d5844d9d79a36af92ee074ed2df9c6942e6c27d6e46877013012a",
+    "bundled": true,
+    "version": "FFmpeg 9.0.2 essentials",
+    "upstream": "https://www.gyan.dev/ffmpeg/builds/"
+  }
+}
